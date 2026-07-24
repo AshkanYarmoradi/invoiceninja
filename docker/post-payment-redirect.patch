@@ -1,0 +1,21 @@
+# Fix: post-payment redirect returns HTTP 500 (client portal).
+#
+# ClientPortal\PaymentController::show() consumes a per-invoice ?redirect= by
+# unset()-ing the typed property InvoiceBackup::$redirect, then saving the invoice.
+# unset() leaves the typed property *uninitialized* (not null); the save re-reads it
+# through the model cast and throws a fatal Error -> HTTP 500 on the page the payer
+# lands on. InvoiceBackup::$redirect is declared `public ?string $redirect = null`,
+# so assigning null is type-safe and lets the cast/save succeed.
+#
+# Affected: Invoice Ninja v5 (verified against v5.13.26). Upstream issue: <link>.
+# Retire this patch once upstream ships an equivalent fix.
+--- a/app/Http/Controllers/ClientPortal/PaymentController.php
++++ b/app/Http/Controllers/ClientPortal/PaymentController.php
+@@ -74,6 +74,6 @@
+         if ($invoice) {
+             $backup = $invoice->backup;
+             $url = $backup->redirect;
+-            unset($backup->redirect);
++            $backup->redirect = null;
+             $invoice->saveQuietly();
+             return redirect($url);
