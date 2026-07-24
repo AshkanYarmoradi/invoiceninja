@@ -23,10 +23,12 @@ just paid for — including agent-channel buyers who have no Huisscan tab open.
 ## How it's built
 
 `docker/Dockerfile` starts `FROM invoiceninja/invoiceninja:${IN_VERSION}` — the
-official image, unchanged — and applies `docker/post-payment-redirect.patch` to the
-app at `/var/www/html`. Nothing is compiled or reinstalled; exactly one PHP file
-changes. The build then greps for the fixed line so a fuzzy patch apply cannot pass
-silently, and fails otherwise.
+official image, unchanged — and overlays a single file patched with
+`docker/post-payment-redirect.patch`. The app lives at `/var/www/app` in the image and
+its files are owned by `1500:1500`; the patch is applied in a throwaway Debian stage
+(the Alpine base ships no `patch`) and the build greps for the fixed line so a fuzzy
+apply cannot pass silently. Nothing is compiled or reinstalled; exactly one PHP file
+changes.
 
 `.github/workflows/build-image.yml` builds this on every PR (without pushing, so the
 PR check proves the patch still applies) and, on merge to the default branch, pushes
