@@ -10,15 +10,28 @@
 # the patch no longer applies to that version — that failure is the signal to review
 # the change against upstream (and, once upstream fixes it, to retire this fork).
 ARG IN_VERSION=5.13.26
-FROM invoiceninja/invoiceninja:${IN_VERSION}
 
-COPY post-payment-redirect.patch /tmp/post-payment-redirect.patch
+# Stage 1 — patch the file in a throwaway Debian stage that has `patch` (the php-fpm
+# base image ships no patch utility). Applying a diff, rather than committing a whole
+# vendored copy of the file, preserves drift detection: if the pinned upstream ever
+# changes this code the patch fails, and so does the build.
+FROM invoiceninja/invoiceninja:${IN_VERSION} AS source
 
-# Apply the patch, then assert the fixed line is actually present — a fuzzy apply
-# could otherwise land at the wrong offset and still exit 0. Any failure aborts the
-# build (set -e).
+FROM debian:bookworm-slim AS patcher
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends patch \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=source \
+    /var/www/html/app/Http/Controllers/ClientPortal/PaymentController.php \
+    /work/PaymentController.php
+COPY post-payment-redirect.patch /work/post-payment-redirect.patch
 RUN set -eux; \
-    patch -p1 -d /var/www/html < /tmp/post-payment-redirect.patch; \
-    grep -q 'backup->redirect = null;' \
-        /var/www/html/app/Http/Controllers/ClientPortal/PaymentController.php; \
-    rm /tmp/post-payment-redirect.patch
+    cd /work; \
+    patch PaymentController.php < post-payment-redirect.patch; \
+    grep -q 'backup->redirect = null;' PaymentController.php
+
+# Stage 2 — the official image, unchanged, with only the patched file overlaid.
+FROM invoiceninja/invoiceninja:${IN_VERSION}
+COPY --from=patcher --chown=www-data:www-data \
+    /work/PaymentController.php \
+    /var/www/html/app/Http/Controllers/ClientPortal/PaymentController.php
