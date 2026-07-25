@@ -7,7 +7,7 @@
 # lands on. InvoiceBackup::$redirect is declared `public ?string $redirect = null`,
 # so assigning null is type-safe and lets the cast/save succeed.
 #
-# Affected: Invoice Ninja v5 (verified against v5.13.26). Upstream issue: <link>.
+# Affected: Invoice Ninja v5 (verified against v5.13.26). Upstream PR: https://github.com/invoiceninja/invoiceninja/pull/12108
 # Retire this patch once upstream ships an equivalent fix.
 --- a/app/Http/Controllers/ClientPortal/PaymentController.php
 +++ b/app/Http/Controllers/ClientPortal/PaymentController.php
